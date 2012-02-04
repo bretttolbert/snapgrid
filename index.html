@@ -1,11 +1,16 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
+<title>snapgrid</title>
 <meta charset="utf-8" />
 <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js"></script>
 <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
 <script type="text/javascript">
+/**
+ * snapgrid
+ * https://github.com/bretttolbert/snapgrid
+ */
 var canvas;
 var ctx;
 var CELL_SIZE = 16;
@@ -151,7 +156,7 @@ function mouseMove(e) {
             var m = (lineSeg.p2.y - lineSeg.p1.y)
                   / (lineSeg.p2.x - lineSeg.p1.x);
             var x,y;
-            if (m == Infinity) {
+            if (Math.abs(m) == Infinity) {
                 x = mouseX;
                 y = mouseY;
             } else {

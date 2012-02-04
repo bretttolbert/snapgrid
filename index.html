@@ -222,22 +222,6 @@ function mouseClick(e) {
         //start pending line
         pendingLineStartPoint = {x:snapX,y:snapY};
     } else if (currentTool == 'delete-tool') {
-        //keep this old logic around. we can use it for a 'delete selected' button
-        /*
-        var survivingLines = [];
-        for (var i=0; i<lineSegments.length; ++i) {
-            var selected = false;
-            for (var j=0; j<selectedLines.length; ++j) {
-                if (selectedLines[j] == i) {
-                    selected = true;
-                }
-            }
-            if (!selected) {
-                survivingLines.push(lineSegments[i]);
-            }
-        }
-        lineSegments = survivingLines;
-        */
         //delete mouse hover line
         var mouseHoverLine = -1;
         for (var i=0; i<lineSegments.length; ++i) {
@@ -309,15 +293,43 @@ function showHideGridBtnClicked() {
     drawGrid();
 }
 
+function selectAllBtnClicked() {
+    for (var i=0; i<lineSegments.length; ++i) {
+        lineSegments[i].selected = true;
+    }
+    drawGrid();
+}
+
+function selectNoneBtnClicked() {
+    clearSelectedLines();
+    drawGrid();
+}
+
+function deleteSelectedBtnClicked() {
+    var survivingLines = [];
+    for (var i=0; i<lineSegments.length; ++i) {
+        if (!lineSegments[i].selected) {
+            survivingLines.push(lineSegments[i]);
+        }
+    }
+    lineSegments = survivingLines;
+    drawGrid();
+}
+
+function clearSelectedLines() {
+    for (var i=0; i<lineSegments.length; ++i) {
+        lineSegments[i].selected = false;
+    }    
+}
+
 function toolRadioChanged() {
     var id = this.id;
     currentTool = id;
     pendingLineStartPoint = null;
-    if (id == "delete-tool") {
-        for (var i=0; i<lineSegments.length; ++i) {
-            lineSegments[i].selected = false;
-        }
+    if (id == 'delete-tool' || id == 'line-tool') {
+        //clearSelectedLines(); //not sure if this is desirable
     }
+    drawGrid();
 }
 
 $(function() {
@@ -328,6 +340,9 @@ $(function() {
     canvas.addEventListener('click', mouseClick, false);
     $('input.Btn').button();
     $('#showHideGridBtn').click(showHideGridBtnClicked);
+    $('#selectAllBtn').click(selectAllBtnClicked);
+    $('#selectNoneBtn').click(selectNoneBtnClicked);
+    $('#deleteSelectedBtn').click(deleteSelectedBtnClicked);
     $( "#radio" ).buttonset();
     $("input.ToolRadio").change(toolRadioChanged);
 });
@@ -346,13 +361,15 @@ input.BtnSelected {
 <div style="text-align: center">
 <canvas id="canvas" width="640" height="480"></canvas>
 <form>
-    <input type="button" class="Btn" value="Hide Grid" id="showHideGridBtn"/>
-	<span id="radio">
-
+	<div id="radio">
 		<input type="radio" class="ToolRadio" name="tool-radio" id="line-tool" checked="checked" /><label for="line-tool">Line Tool</label>
 		<input type="radio" class="ToolRadio" name="tool-radio" id="select-tool" /><label for="select-tool">Select Tool</label>
         <input type="radio" class="ToolRadio" name="tool-radio" id="delete-tool" /><label for="delete-tool">Delete Tool</label>
-	</span>
+	</div>
+    <input type="button" class="Btn" value="Hide Grid" id="showHideGridBtn"/>
+    <input type="button" class="Btn" value="Select All" id="selectAllBtn"/>
+    <input type="button" class="Btn" value="Select None" id="selectNoneBtn"/>
+    <input type="button" class="Btn" value="Delete Selected" id="deleteSelectedBtn"/>
 </form>
 </div>
 </body>

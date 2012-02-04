@@ -1,0 +1,302 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
+<script type="text/javascript">
+var canvas;
+var ctx;
+var CELL_SIZE = 16;
+var snapX, snapY;
+var adjacencyList = [];
+var currentTool = 'line-tool';
+var pendingLineStartPoint = null;
+var selectedLines = []; //a list of indices corresponding to entries in adjacencyList
+var isGridVisible = true;
+
+function drawGrid() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if (isGridVisible) {
+        ctx.strokeStyle = '#ddd';
+        for (var x=CELL_SIZE; x<canvas.width; x+=CELL_SIZE) {
+            ctx.beginPath();
+            ctx.moveTo(x,0);
+            ctx.lineTo(x,canvas.height);
+            ctx.stroke();
+        }
+        for (var y=CELL_SIZE; y<canvas.width; y+=CELL_SIZE) {
+            ctx.beginPath();
+            ctx.moveTo(0,y);
+            ctx.lineTo(canvas.width,y);
+            ctx.stroke();
+        }
+    }
+    for (var i=0; i<adjacencyList.length; ++i) {
+        var p1 = adjacencyList[i].p1;
+        var p2 = adjacencyList[i].p2;
+
+        /*
+        //draw dot for p1
+        ctx.beginPath();
+        ctx.arc(p1.x, p1.y, 2, 0, Math.PI*2, true); 
+        ctx.closePath();
+        ctx.fillStyle = "black";
+        ctx.fill();
+        
+        //draw dot for p2
+        ctx.beginPath();
+        ctx.arc(p2.x, p2.y, 2, 0, Math.PI*2, true); 
+        ctx.closePath();
+        ctx.fillStyle = "black";
+        ctx.fill();
+        */
+        
+        //draw line
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y)
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = "black";
+        ctx.stroke();
+    }
+}
+
+function mouseMove(e) {
+   var mouseX, mouseY;
+
+    if(e.offsetX) {
+        mouseX = e.offsetX;
+        mouseY = e.offsetY;
+    }
+    else if(e.layerX) {
+        mouseX = e.layerX;
+        mouseY = e.layerY;
+    }
+    drawGrid();
+        
+    //determine coords of closest point on grid
+        
+    //determine first vertical gridline with x greater than mouseX
+    for (snapX=CELL_SIZE; snapX<=canvas.width && snapX<mouseX; snapX+=CELL_SIZE) { }
+    //snap to previous vertical gridline if mouseX is less than half way there
+    if ((snapX - mouseX) > CELL_SIZE / 2) {
+        snapX -= CELL_SIZE;
+    }
+
+    //determine first horizontal gridline with y greater than mouseY
+    for (snapY=CELL_SIZE; snapY<=canvas.height && snapY<mouseY; snapY+=CELL_SIZE) { }
+    //snap to previous horizontal gridline if mouseY is less than half way there
+    if ((snapY - mouseY) > CELL_SIZE / 2) {
+        snapY -= CELL_SIZE;
+    }
+    
+    /*
+    //highlight vertical gridline
+    ctx.strokeStyle = 'yellow';
+    ctx.beginPath();
+    ctx.moveTo(snapX,0);
+    ctx.lineTo(snapX,canvas.height);
+    ctx.closePath();
+    ctx.stroke();
+
+    //highlight horizontal gridline
+    ctx.strokeStyle = 'yellow';
+    ctx.beginPath();
+    ctx.moveTo(0,snapY);
+    ctx.lineTo(canvas.width,snapY);
+    ctx.closePath();
+    ctx.stroke();
+    */
+    
+    if (currentTool == 'line-tool') {
+        //draw dot
+        ctx.beginPath();
+        ctx.arc(snapX, snapY, 2, 0, Math.PI*2, true); 
+        ctx.closePath();
+        ctx.fillStyle = "green";
+        ctx.fill();
+        
+        //draw temporary line from pendingLineStartPoint to snap position
+        if (pendingLineStartPoint != null) {
+            ctx.beginPath();
+            ctx.moveTo(pendingLineStartPoint.x, pendingLineStartPoint.y);
+            ctx.lineTo(snapX, snapY);
+            ctx.closePath();
+            ctx.strokeStyle = "green";
+            ctx.stroke();
+        }
+    } else if (currentTool == 'delete-tool') {
+        selectedLines = [];
+        for (var i=0; i<adjacencyList.length; ++i) {
+            lineSeg = adjacencyList[i];
+            /*
+            //if cursor is within snap range of one vertex of a line exactly
+            if ((snapX == adjacencyList[i].p1.x && snapY == adjacencyList[i].p1.y)
+             || (snapX == adjacencyList[i].p2.x && snapY == adjacencyList[i].p2.y)) {
+                selectedLines.push(i);
+                //highlight this line
+                ctx.beginPath();
+                ctx.moveTo(adjacencyList[i].p1.x, adjacencyList[i].p1.y);
+                ctx.lineTo(adjacencyList[i].p2.x, adjacencyList[i].p2.y);
+                ctx.closePath();
+                ctx.strokeStyle = "red";
+                ctx.stroke();
+            }
+            */
+            //determine if cursor position is on or very near a line
+            var TOLERANCE = CELL_SIZE/2;
+
+            //calculate slope of the line, in case of vertical line divide by zero like a boss
+            var m = (lineSeg.p2.y - lineSeg.p1.y)
+                  / (lineSeg.p2.x - lineSeg.p1.x);
+            var x,y;
+            if (m == Infinity) {
+                x = mouseX;
+                y = mouseY;
+            } else {
+                //calculate what y of the line would be if x were exactly mouseX
+                y = m * (mouseX - lineSeg.p1.x) + lineSeg.p1.y;
+                //calculate what x of the line would be if y were exactly mouseY
+                x = (mouseY - lineSeg.p1.y) / m + lineSeg.p1.x;
+            }
+            //are calculated values within tolerance?
+            if (Math.abs(y - mouseY) < TOLERANCE && Math.abs(y - mouseY) < TOLERANCE) {
+                //mouse pos is (approximately) on the line but is it within the line segment?
+                //determine extrema of the line segment
+                var minX = Math.min(lineSeg.p1.x, lineSeg.p2.x);
+                var minY = Math.min(lineSeg.p1.y, lineSeg.p2.y);
+                var maxX = Math.max(lineSeg.p1.x, lineSeg.p2.x);
+                var maxY = Math.max(lineSeg.p1.y, lineSeg.p2.y);
+                if (   (mouseX >= minX || minX - mouseX < TOLERANCE)
+                    && (mouseY >= minY || minY - mouseY < TOLERANCE)
+                    && (mouseX <= maxX || mouseX - maxX < TOLERANCE)
+                    && (mouseY <= maxY || mouseY - maxY < TOLERANCE)) {
+                    //add line segment to the selected list
+                    selectedLines.push(i);
+                    //highlight this line
+                    ctx.beginPath();
+                    ctx.moveTo(lineSeg.p1.x, lineSeg.p1.y);
+                    ctx.lineTo(lineSeg.p2.x, lineSeg.p2.y);
+                    ctx.closePath();
+                    ctx.strokeStyle = "red";
+                    ctx.stroke();    
+                }
+            }
+        }
+    }
+}
+
+function mouseClick(e) {
+    if (currentTool == 'line-tool') {
+        if (pendingLineStartPoint != null) {
+            //complete pending line
+            adjacencyList.push({p1:pendingLineStartPoint,p2:{x:snapX,y:snapY}});
+            pendingLineStartPoint = {x:snapX,y:snapY};
+        }
+        //start pending line
+        pendingLineStartPoint = {x:snapX,y:snapY};
+    } else if (currentTool == 'delete-tool') {
+        //delete selected lines
+        var survivingLines = [];
+        for (var i=0; i<adjacencyList.length; ++i) {
+            var selected = false;
+            for (var j=0; j<selectedLines.length; ++j) {
+                if (selectedLines[j] == i) {
+                    selected = true;
+                }
+            }
+            if (!selected) {
+                survivingLines.push(adjacencyList[i]);
+            }
+        }
+        adjacencyList = survivingLines;
+    }
+    drawGrid();
+}
+
+function mouseDown(e) {
+	var rightclick;
+	if (!e) var e = window.event;
+	if (e.which) rightclick = (e.which == 3);
+	else if (e.button) rightclick = (e.button == 2);
+	alert('Rightclick: ' + rightclick); // true or false
+}
+
+function rightClick() {
+    if (currentTool == 'line-tool') {
+        //clear pending line
+        pendingLineStartPoint = null;
+    }
+}
+
+function clickIE() {
+    if (document.all) {
+        return false;
+    }
+} 
+function clickNS(e) {
+    if (document.layers || (document.getElementById && !document.all)) 
+    { 
+        if (e.which==2 || e.which==3) {
+            rightClick();
+            return false;
+        }
+    }
+}
+if (document.layers) {
+    document.captureEvents(Event.MOUSEDOWN);
+    document.onmousedown = clickNS;
+} else {
+    document.onmouseup = clickNS;
+    document.oncontextmenu = clickIE;
+}
+document.oncontextmenu = function() {return false;};
+
+function showHideGridBtnClicked() {
+    if ($(this).val() == "Hide Grid") {
+        isGridVisible = false;
+        $(this).val("Show Grid");
+    } else {
+        isGridVisible = true;
+        $(this).val("Hide Grid");
+    }
+    drawGrid();
+}
+
+function deleteToolBtnClicked() {
+    currentTool = "delete-tool";
+    pendingLineStartPoint = null;
+}
+
+function lineToolBtnClicked() {
+    currentTool = "line-tool";
+}
+
+$(function() {
+    canvas = document.getElementById('canvas');
+    ctx = canvas.getContext('2d');
+    drawGrid();
+    canvas.addEventListener('mousemove', mouseMove, false);
+    canvas.addEventListener('click', mouseClick, false);
+    $('#showHideGridBtn').click(showHideGridBtnClicked);
+    $('#deleteToolBtn').click(deleteToolBtnClicked);
+    $('#lineToolBtn').click(lineToolBtnClicked);
+});
+</script>
+<style type="text/css">
+#canvas {
+    border: 1px solid #ddd;
+    position: relative;
+}
+</style>
+</head>
+<body>
+<div style="text-align: center">
+<canvas id="canvas" width="640" height="480"></canvas>
+<input type="button" value="Hide Grid" id="showHideGridBtn"/>
+<input type="button" value="Delete Tool" id="deleteToolBtn"/>
+<input type="button" value="Line Tool" id="lineToolBtn"/>
+</div>
+</body>
+</html>

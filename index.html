@@ -11,16 +11,22 @@
  * snapgrid
  * https://github.com/bretttolbert/snapgrid
  */
-var canvas;
-var ctx;
-var CELL_SIZE = 16;
-var snapX, snapY;
-var adjacencyList = [];
+ //snapgrid global variables
+var canvas; //html5 canvas element
+var ctx; //canvas drawing context
+var CELL_SIZE = 16; //size of each grid cell
+var mouseX, mouseY; //coordinate of most recent mouse position
+var snapX, snapY; //coordinate of grid vertex which is closest to cursor position
+var lineSegments = []; //the list of all existing line segments (point pairs)
 var currentTool = 'line-tool';
-var pendingLineStartPoint = null;
-var selectedLines = []; //a list of indices corresponding to entries in adjacencyList
 var isGridVisible = true;
 
+//line-tool variables
+var pendingLineStartPoint = null; //used by the line-tool
+
+/** 
+ * Responsible for drawing the grid and all existing line segments
+ */
 function drawGrid() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     if (isGridVisible) {
@@ -38,11 +44,10 @@ function drawGrid() {
             ctx.stroke();
         }
     }
-    for (var i=0; i<adjacencyList.length; ++i) {
-        var p1 = adjacencyList[i].p1;
-        var p2 = adjacencyList[i].p2;
+    for (var i=0; i<lineSegments.length; ++i) {
+        var p1 = lineSegments[i].p1;
+        var p2 = lineSegments[i].p2;
 
-        /*
         //draw dot for p1
         ctx.beginPath();
         ctx.arc(p1.x, p1.y, 2, 0, Math.PI*2, true); 
@@ -56,32 +61,82 @@ function drawGrid() {
         ctx.closePath();
         ctx.fillStyle = "black";
         ctx.fill();
-        */
         
         //draw line
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y)
         ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = "black";
+        if (lineSegments[i].hover && (currentTool == 'delete-tool' || currentTool == 'select-tool')) {
+            ctx.strokeStyle = 'teal';
+        } else if (lineSegments[i].selected) {
+            ctx.strokeStyle = 'blue';
+        } else {
+            ctx.strokeStyle = 'black';
+        }
         ctx.stroke();
     }
 }
 
-function mouseMove(e) {
-   var mouseX, mouseY;
+/**
+ * Detects mouse hover over any existing line segment
+ */
+function updateMouseHoverLine() {
+    for (var i=0; i<lineSegments.length; ++i) {
+        lineSeg = lineSegments[i];
+        lineSeg.hover = false;
+        /*
+        //if cursor is within snap range of one vertex of a line exactly
+        if ((snapX == lineSegments[i].p1.x && snapY == lineSegments[i].p1.y)
+         || (snapX == lineSegments[i].p2.x && snapY == lineSegments[i].p2.y)) {
+            selectedLines.push(i);
+            //highlight this line
+            ctx.beginPath();
+            ctx.moveTo(lineSegments[i].p1.x, lineSegments[i].p1.y);
+            ctx.lineTo(lineSegments[i].p2.x, lineSegments[i].p2.y);
+            ctx.closePath();
+            ctx.strokeStyle = "red";
+            ctx.stroke();
+        }
+        */
+        //determine if cursor position is on or very near a line
+        var TOLERANCE = CELL_SIZE/2;
 
-    if(e.offsetX) {
-        mouseX = e.offsetX;
-        mouseY = e.offsetY;
+        //calculate slope of the line, in case of vertical line divide by zero like a boss
+        var m = (lineSeg.p2.y - lineSeg.p1.y)
+              / (lineSeg.p2.x - lineSeg.p1.x);
+        var x,y;
+        if (Math.abs(m) == Infinity) {
+            x = mouseX;
+            y = mouseY;
+        } else {
+            //calculate what y of the line would be if x were exactly mouseX
+            y = m * (mouseX - lineSeg.p1.x) + lineSeg.p1.y;
+            //calculate what x of the line would be if y were exactly mouseY
+            x = (mouseY - lineSeg.p1.y) / m + lineSeg.p1.x;
+        }
+        //are calculated values within tolerance?
+        if (Math.abs(y - mouseY) < TOLERANCE && Math.abs(y - mouseY) < TOLERANCE) {
+            //mouse pos is (approximately) on the line but is it within the line segment?
+            //determine extrema of the line segment
+            var minX = Math.min(lineSeg.p1.x, lineSeg.p2.x);
+            var minY = Math.min(lineSeg.p1.y, lineSeg.p2.y);
+            var maxX = Math.max(lineSeg.p1.x, lineSeg.p2.x);
+            var maxY = Math.max(lineSeg.p1.y, lineSeg.p2.y);
+            if (   (mouseX >= minX || minX - mouseX < TOLERANCE)
+                && (mouseY >= minY || minY - mouseY < TOLERANCE)
+                && (mouseX <= maxX || mouseX - maxX < TOLERANCE)
+                && (mouseY <= maxY || mouseY - maxY < TOLERANCE)) {
+                lineSeg.hover = true;
+                return;
+            }
+        }
     }
-    else if(e.layerX) {
-        mouseX = e.layerX;
-        mouseY = e.layerY;
-    }
-    drawGrid();
-        
-    //determine coords of closest point on grid
-        
+}
+
+/**
+ * Determines grid vertex closest to mouse position
+ */
+function updateSnapPos() {        
     //determine first vertical gridline with x greater than mouseX
     for (snapX=CELL_SIZE; snapX<=canvas.width && snapX<mouseX; snapX+=CELL_SIZE) { }
     //snap to previous vertical gridline if mouseX is less than half way there
@@ -113,13 +168,27 @@ function mouseMove(e) {
     ctx.closePath();
     ctx.stroke();
     */
+}
+
+function mouseMove(e) {
+    if(e.offsetX) {
+        mouseX = e.offsetX;
+        mouseY = e.offsetY;
+    }
+    else if(e.layerX) {
+        mouseX = e.layerX;
+        mouseY = e.layerY;
+    }
+    drawGrid();
+    updateSnapPos();
+    updateMouseHoverLine();
     
     if (currentTool == 'line-tool') {
-        //draw dot
+        //draw dot at closet grid vertex
         ctx.beginPath();
         ctx.arc(snapX, snapY, 2, 0, Math.PI*2, true); 
         ctx.closePath();
-        ctx.fillStyle = "green";
+        ctx.fillStyle = 'teal';
         ctx.fill();
         
         //draw temporary line from pendingLineStartPoint to snap position
@@ -128,67 +197,13 @@ function mouseMove(e) {
             ctx.moveTo(pendingLineStartPoint.x, pendingLineStartPoint.y);
             ctx.lineTo(snapX, snapY);
             ctx.closePath();
-            ctx.strokeStyle = "green";
+            ctx.strokeStyle = 'teal';
             ctx.stroke();
         }
     } else if (currentTool == 'delete-tool') {
-        selectedLines = [];
-        for (var i=0; i<adjacencyList.length; ++i) {
-            lineSeg = adjacencyList[i];
-            /*
-            //if cursor is within snap range of one vertex of a line exactly
-            if ((snapX == adjacencyList[i].p1.x && snapY == adjacencyList[i].p1.y)
-             || (snapX == adjacencyList[i].p2.x && snapY == adjacencyList[i].p2.y)) {
-                selectedLines.push(i);
-                //highlight this line
-                ctx.beginPath();
-                ctx.moveTo(adjacencyList[i].p1.x, adjacencyList[i].p1.y);
-                ctx.lineTo(adjacencyList[i].p2.x, adjacencyList[i].p2.y);
-                ctx.closePath();
-                ctx.strokeStyle = "red";
-                ctx.stroke();
-            }
-            */
-            //determine if cursor position is on or very near a line
-            var TOLERANCE = CELL_SIZE/2;
-
-            //calculate slope of the line, in case of vertical line divide by zero like a boss
-            var m = (lineSeg.p2.y - lineSeg.p1.y)
-                  / (lineSeg.p2.x - lineSeg.p1.x);
-            var x,y;
-            if (Math.abs(m) == Infinity) {
-                x = mouseX;
-                y = mouseY;
-            } else {
-                //calculate what y of the line would be if x were exactly mouseX
-                y = m * (mouseX - lineSeg.p1.x) + lineSeg.p1.y;
-                //calculate what x of the line would be if y were exactly mouseY
-                x = (mouseY - lineSeg.p1.y) / m + lineSeg.p1.x;
-            }
-            //are calculated values within tolerance?
-            if (Math.abs(y - mouseY) < TOLERANCE && Math.abs(y - mouseY) < TOLERANCE) {
-                //mouse pos is (approximately) on the line but is it within the line segment?
-                //determine extrema of the line segment
-                var minX = Math.min(lineSeg.p1.x, lineSeg.p2.x);
-                var minY = Math.min(lineSeg.p1.y, lineSeg.p2.y);
-                var maxX = Math.max(lineSeg.p1.x, lineSeg.p2.x);
-                var maxY = Math.max(lineSeg.p1.y, lineSeg.p2.y);
-                if (   (mouseX >= minX || minX - mouseX < TOLERANCE)
-                    && (mouseY >= minY || minY - mouseY < TOLERANCE)
-                    && (mouseX <= maxX || mouseX - maxX < TOLERANCE)
-                    && (mouseY <= maxY || mouseY - maxY < TOLERANCE)) {
-                    //add line segment to the selected list
-                    selectedLines.push(i);
-                    //highlight this line
-                    ctx.beginPath();
-                    ctx.moveTo(lineSeg.p1.x, lineSeg.p1.y);
-                    ctx.lineTo(lineSeg.p2.x, lineSeg.p2.y);
-                    ctx.closePath();
-                    ctx.strokeStyle = "red";
-                    ctx.stroke();    
-                }
-            }
-        }
+        
+    } else if (currentTool == 'select-tool') {
+        
     }
 }
 
@@ -196,15 +211,21 @@ function mouseClick(e) {
     if (currentTool == 'line-tool') {
         if (pendingLineStartPoint != null) {
             //complete pending line
-            adjacencyList.push({p1:pendingLineStartPoint,p2:{x:snapX,y:snapY}});
+            lineSegments.push({
+                p1:pendingLineStartPoint,
+                p2:{x:snapX,y:snapY},
+                selected:false,
+                hover:false}
+            );
             pendingLineStartPoint = {x:snapX,y:snapY};
         }
         //start pending line
         pendingLineStartPoint = {x:snapX,y:snapY};
     } else if (currentTool == 'delete-tool') {
-        //delete selected lines
+        //keep this old logic around. we can use it for a 'delete selected' button
+        /*
         var survivingLines = [];
-        for (var i=0; i<adjacencyList.length; ++i) {
+        for (var i=0; i<lineSegments.length; ++i) {
             var selected = false;
             for (var j=0; j<selectedLines.length; ++j) {
                 if (selectedLines[j] == i) {
@@ -212,10 +233,29 @@ function mouseClick(e) {
                 }
             }
             if (!selected) {
-                survivingLines.push(adjacencyList[i]);
+                survivingLines.push(lineSegments[i]);
             }
         }
-        adjacencyList = survivingLines;
+        lineSegments = survivingLines;
+        */
+        //delete mouse hover line
+        var mouseHoverLine = -1;
+        for (var i=0; i<lineSegments.length; ++i) {
+            if (lineSegments[i].hover) {
+                mouseHoverLine = i;
+                break;
+            }
+        }
+        if (mouseHoverLine != -1) {
+            lineSegments.splice(mouseHoverLine,1);     
+        }
+    } else if (currentTool == 'select-tool') {
+        for (var i=0; i<lineSegments.length; ++i) {
+            if (lineSegments[i].hover) {
+                lineSegments[i].selected = !lineSegments[i].selected;
+                lineSegments[i].hover = false;
+            }
+        }
     }
     drawGrid();
 }
@@ -269,13 +309,15 @@ function showHideGridBtnClicked() {
     drawGrid();
 }
 
-function deleteToolBtnClicked() {
-    currentTool = "delete-tool";
+function toolRadioChanged() {
+    var id = this.id;
+    currentTool = id;
     pendingLineStartPoint = null;
-}
-
-function lineToolBtnClicked() {
-    currentTool = "line-tool";
+    if (id == "delete-tool") {
+        for (var i=0; i<lineSegments.length; ++i) {
+            lineSegments[i].selected = false;
+        }
+    }
 }
 
 $(function() {
@@ -284,9 +326,10 @@ $(function() {
     drawGrid();
     canvas.addEventListener('mousemove', mouseMove, false);
     canvas.addEventListener('click', mouseClick, false);
+    $('input.Btn').button();
     $('#showHideGridBtn').click(showHideGridBtnClicked);
-    $('#deleteToolBtn').click(deleteToolBtnClicked);
-    $('#lineToolBtn').click(lineToolBtnClicked);
+    $( "#radio" ).buttonset();
+    $("input.ToolRadio").change(toolRadioChanged);
 });
 </script>
 <style type="text/css">
@@ -294,14 +337,23 @@ $(function() {
     border: 1px solid #ddd;
     position: relative;
 }
+input.BtnSelected {
+    background-color: #888;
+}
 </style>
 </head>
 <body>
 <div style="text-align: center">
 <canvas id="canvas" width="640" height="480"></canvas>
-<input type="button" value="Hide Grid" id="showHideGridBtn"/>
-<input type="button" value="Delete Tool" id="deleteToolBtn"/>
-<input type="button" value="Line Tool" id="lineToolBtn"/>
+<form>
+    <input type="button" class="Btn" value="Hide Grid" id="showHideGridBtn"/>
+	<span id="radio">
+
+		<input type="radio" class="ToolRadio" name="tool-radio" id="line-tool" checked="checked" /><label for="line-tool">Line Tool</label>
+		<input type="radio" class="ToolRadio" name="tool-radio" id="select-tool" /><label for="select-tool">Select Tool</label>
+        <input type="radio" class="ToolRadio" name="tool-radio" id="delete-tool" /><label for="delete-tool">Delete Tool</label>
+	</span>
+</form>
 </div>
 </body>
 </html>

@@ -20,6 +20,8 @@ var snapX, snapY; //coordinate of grid vertex which is closest to cursor positio
 var lineSegments = []; //the list of all existing line segments (point pairs)
 var currentTool = 'line-tool';
 var isGridVisible = true;
+var snapToGrid = true;
+var snapToLines = true;
 
 //line-tool variables
 var pendingLineStartPoint = null; //used by the line-tool
@@ -142,38 +144,24 @@ function updateMouseHoverLine() {
 /**
  * Determines grid vertex closest to mouse position
  */
-function updateSnapPos() {        
-    //determine first vertical gridline with x greater than mouseX
-    for (snapX=CELL_SIZE; snapX<=canvas.width && snapX<mouseX; snapX+=CELL_SIZE) { }
-    //snap to previous vertical gridline if mouseX is less than half way there
-    if ((snapX - mouseX) > CELL_SIZE / 2) {
-        snapX -= CELL_SIZE;
-    }
+function updateSnapPos() {
+    snapX = mouseX;
+    snapY = mouseY;
+    if (snapToGrid) {
+        //determine first vertical gridline with x greater than mouseX
+        for (snapX=CELL_SIZE; snapX<=canvas.width && snapX<mouseX; snapX+=CELL_SIZE) { }
+        //snap to previous vertical gridline if mouseX is less than half way there
+        if ((snapX - mouseX) > CELL_SIZE / 2) {
+            snapX -= CELL_SIZE;
+        }
 
-    //determine first horizontal gridline with y greater than mouseY
-    for (snapY=CELL_SIZE; snapY<=canvas.height && snapY<mouseY; snapY+=CELL_SIZE) { }
-    //snap to previous horizontal gridline if mouseY is less than half way there
-    if ((snapY - mouseY) > CELL_SIZE / 2) {
-        snapY -= CELL_SIZE;
+        //determine first horizontal gridline with y greater than mouseY
+        for (snapY=CELL_SIZE; snapY<=canvas.height && snapY<mouseY; snapY+=CELL_SIZE) { }
+        //snap to previous horizontal gridline if mouseY is less than half way there
+        if ((snapY - mouseY) > CELL_SIZE / 2) {
+            snapY -= CELL_SIZE;
+        }
     }
-    
-    /*
-    //highlight vertical gridline
-    ctx.strokeStyle = 'yellow';
-    ctx.beginPath();
-    ctx.moveTo(snapX,0);
-    ctx.lineTo(snapX,canvas.height);
-    ctx.closePath();
-    ctx.stroke();
-
-    //highlight horizontal gridline
-    ctx.strokeStyle = 'yellow';
-    ctx.beginPath();
-    ctx.moveTo(0,snapY);
-    ctx.lineTo(canvas.width,snapY);
-    ctx.closePath();
-    ctx.stroke();
-    */
 }
 
 function mouseMove(e) {
@@ -189,16 +177,17 @@ function mouseMove(e) {
     updateSnapPos();
     updateMouseHoverLine();
     
-    if (currentTool == 'line-tool') {
-        //draw dot at closet grid vertex
+    if (currentTool == 'line-tool') {    
+        //draw dot at target position
         ctx.beginPath();
         ctx.arc(snapX, snapY, 2, 0, Math.PI*2, true); 
         ctx.closePath();
         ctx.fillStyle = 'teal';
         ctx.fill();
         
-        //draw temporary line from pendingLineStartPoint to snap position
+        //if there is a pending line
         if (pendingLineStartPoint != null) {
+            //draw temporary line from pendingLineStartPoint to target position
             ctx.beginPath();
             ctx.moveTo(pendingLineStartPoint.x, pendingLineStartPoint.y);
             ctx.lineTo(snapX, snapY);
@@ -223,7 +212,6 @@ function mouseClick(e) {
                 selected:false,
                 hover:false}
             );
-            pendingLineStartPoint = {x:snapX,y:snapY};
         }
         //start pending line
         pendingLineStartPoint = {x:snapX,y:snapY};
@@ -338,19 +326,32 @@ function toolRadioChanged() {
     drawGrid();
 }
 
+function initSnapOptionsUI() {
+    //$("#snapOptions").buttonset();
+    $("#snapToGrid").prop('checked',snapToGrid);
+    $("#snapToLines").prop('checked',snapToLines);
+    $("#snapToGrid").change(function() {
+        snapToGrid = $(this).prop('checked');
+    });
+    $("#snapToLines").change(function() {
+        snapToLines = $(this).prop('checked');
+    });
+}
+
 $(function() {
     canvas = document.getElementById('canvas');
     ctx = canvas.getContext('2d');
     drawGrid();
     canvas.addEventListener('mousemove', mouseMove, false);
     canvas.addEventListener('click', mouseClick, false);
-    $('input.Btn').button();
+    //$('input.Btn').button();
     $('#showHideGridBtn').click(showHideGridBtnClicked);
     $('#selectAllBtn').click(selectAllBtnClicked);
     $('#selectNoneBtn').click(selectNoneBtnClicked);
     $('#deleteSelectedBtn').click(deleteSelectedBtnClicked);
-    $( "#radio" ).buttonset();
+    //$("#radio").buttonset();
     $("input.ToolRadio").change(toolRadioChanged);
+    initSnapOptionsUI();
 });
 </script>
 <style type="text/css">
@@ -360,6 +361,9 @@ $(function() {
 }
 input.BtnSelected {
     background-color: #888;
+}
+input, label {
+    font-family: Calibri;
 }
 </style>
 </head>
@@ -376,6 +380,10 @@ input.BtnSelected {
     <input type="button" class="Btn" value="Select All" id="selectAllBtn"/>
     <input type="button" class="Btn" value="Select None" id="selectNoneBtn"/>
     <input type="button" class="Btn" value="Delete Selected" id="deleteSelectedBtn"/>
+    <div id="snapOptions">
+        <input type="checkbox" id="snapToGrid" /><label for="snapToGrid">Snap to Grid</label>
+        <input type="checkbox" id="snapToLines" /><label for="snapToLines">Snap to Lines</label>
+    </div>
 </form>
 </div>
 </body>

@@ -24,6 +24,38 @@ var isGridVisible = true;
 //line-tool variables
 var pendingLineStartPoint = null; //used by the line-tool
 
+function isPointOnLineSegment(lineSeg, point, tolerance) {
+    //calculate slope of the line, in case of vertical line divide by zero like a boss
+    var m = (lineSeg.p2.y - lineSeg.p1.y)
+          / (lineSeg.p2.x - lineSeg.p1.x);
+    var x,y;
+    if (Math.abs(m) == Infinity) {
+        x = point.x;
+        y = point.y;
+    } else {
+        //calculate what y of the line would be if x were exactly point.x
+        y = m * (point.x - lineSeg.p1.x) + lineSeg.p1.y;
+        //calculate what x of the line would be if y were exactly point.y
+        x = (point.y - lineSeg.p1.y) / m + lineSeg.p1.x;
+    }
+    //are calculated values within tolerance?
+    if (Math.abs(y - point.y) < tolerance && Math.abs(y - point.y) < tolerance) {
+        //point is (approximately) on the line but is it within the line segment?
+        //determine extrema of the line segment
+        var minX = Math.min(lineSeg.p1.x, lineSeg.p2.x);
+        var minY = Math.min(lineSeg.p1.y, lineSeg.p2.y);
+        var maxX = Math.max(lineSeg.p1.x, lineSeg.p2.x);
+        var maxY = Math.max(lineSeg.p1.y, lineSeg.p2.y);
+        if (   (point.x >= minX || minX - point.x < tolerance)
+            && (point.y >= minY || minY - point.y < tolerance)
+            && (point.x <= maxX || point.x - maxX < tolerance)
+            && (point.y <= maxY || point.y - maxY < tolerance)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /** 
  * Responsible for drawing the grid and all existing line segments
  */
@@ -83,7 +115,6 @@ function drawGrid() {
 function updateMouseHoverLine() {
     for (var i=0; i<lineSegments.length; ++i) {
         lineSeg = lineSegments[i];
-        lineSeg.hover = false;
         /*
         //if cursor is within snap range of one vertex of a line exactly
         if ((snapX == lineSegments[i].p1.x && snapY == lineSegments[i].p1.y)
@@ -100,35 +131,10 @@ function updateMouseHoverLine() {
         */
         //determine if cursor position is on or very near a line
         var TOLERANCE = CELL_SIZE/2;
-
-        //calculate slope of the line, in case of vertical line divide by zero like a boss
-        var m = (lineSeg.p2.y - lineSeg.p1.y)
-              / (lineSeg.p2.x - lineSeg.p1.x);
-        var x,y;
-        if (Math.abs(m) == Infinity) {
-            x = mouseX;
-            y = mouseY;
+        if (isPointOnLineSegment(lineSeg, {x:mouseX,y:mouseY}, TOLERANCE)) {
+            lineSeg.hover = true;
         } else {
-            //calculate what y of the line would be if x were exactly mouseX
-            y = m * (mouseX - lineSeg.p1.x) + lineSeg.p1.y;
-            //calculate what x of the line would be if y were exactly mouseY
-            x = (mouseY - lineSeg.p1.y) / m + lineSeg.p1.x;
-        }
-        //are calculated values within tolerance?
-        if (Math.abs(y - mouseY) < TOLERANCE && Math.abs(y - mouseY) < TOLERANCE) {
-            //mouse pos is (approximately) on the line but is it within the line segment?
-            //determine extrema of the line segment
-            var minX = Math.min(lineSeg.p1.x, lineSeg.p2.x);
-            var minY = Math.min(lineSeg.p1.y, lineSeg.p2.y);
-            var maxX = Math.max(lineSeg.p1.x, lineSeg.p2.x);
-            var maxY = Math.max(lineSeg.p1.y, lineSeg.p2.y);
-            if (   (mouseX >= minX || minX - mouseX < TOLERANCE)
-                && (mouseY >= minY || minY - mouseY < TOLERANCE)
-                && (mouseX <= maxX || mouseX - maxX < TOLERANCE)
-                && (mouseY <= maxY || mouseY - maxY < TOLERANCE)) {
-                lineSeg.hover = true;
-                return;
-            }
+            lineSeg.hover = false;
         }
     }
 }

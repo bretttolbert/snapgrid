@@ -21,7 +21,8 @@ var lineSegments = []; //the list of all existing line segments (point pairs)
 var currentTool = 'line-tool';
 var isGridVisible = true;
 var snapToGrid = true;
-var snapToLines = true;
+var snapToVertices = true;
+var snapToEdges = false;
 
 //line-tool variables
 var pendingLineStartPoint = null; //used by the line-tool
@@ -117,20 +118,6 @@ function drawGrid() {
 function updateMouseHoverLine() {
     for (var i=0; i<lineSegments.length; ++i) {
         lineSeg = lineSegments[i];
-        /*
-        //if cursor is within snap range of one vertex of a line exactly
-        if ((snapX == lineSegments[i].p1.x && snapY == lineSegments[i].p1.y)
-         || (snapX == lineSegments[i].p2.x && snapY == lineSegments[i].p2.y)) {
-            selectedLines.push(i);
-            //highlight this line
-            ctx.beginPath();
-            ctx.moveTo(lineSegments[i].p1.x, lineSegments[i].p1.y);
-            ctx.lineTo(lineSegments[i].p2.x, lineSegments[i].p2.y);
-            ctx.closePath();
-            ctx.strokeStyle = "red";
-            ctx.stroke();
-        }
-        */
         //determine if cursor position is on or very near a line
         var TOLERANCE = CELL_SIZE/2;
         if (isPointOnLineSegment(lineSeg, {x:mouseX,y:mouseY}, TOLERANCE)) {
@@ -160,6 +147,23 @@ function updateSnapPos() {
         //snap to previous horizontal gridline if mouseY is less than half way there
         if ((snapY - mouseY) > CELL_SIZE / 2) {
             snapY -= CELL_SIZE;
+        }
+    }
+    if (snapToVertices) {
+        var TOLERANCE = CELL_SIZE / 2;
+        for (var i=0; i<lineSegments.length; ++i) {
+            //if mouse position is within TOLERANCE distance of one vertex of a line exactly
+            if ( Math.abs(mouseX - lineSegments[i].p1.x) < TOLERANCE 
+              && Math.abs(mouseY - lineSegments[i].p1.y) < TOLERANCE) {
+                snapX = lineSegments[i].p1.x;
+                snapY = lineSegments[i].p1.y;
+                return;
+            } else if ( Math.abs(mouseX - lineSegments[i].p2.x) < TOLERANCE
+                     && Math.abs(mouseY - lineSegments[i].p2.y) < TOLERANCE) {
+                snapX = lineSegments[i].p2.x;
+                snapY = lineSegments[i].p2.y;
+                return;
+            }
         }
     }
 }
@@ -329,12 +333,17 @@ function toolRadioChanged() {
 function initSnapOptionsUI() {
     //$("#snapOptions").buttonset();
     $("#snapToGrid").prop('checked',snapToGrid);
-    $("#snapToLines").prop('checked',snapToLines);
+    $("#snapToVertices").prop('checked',snapToVertices);
+    $("#snapToEdges").prop('checked',snapToEdges);
     $("#snapToGrid").change(function() {
         snapToGrid = $(this).prop('checked');
     });
-    $("#snapToLines").change(function() {
-        snapToLines = $(this).prop('checked');
+    $("#snapToVertices").change(function() {
+        snapToVertices = $(this).prop('checked');
+    });
+    $("#snapToEdges").change(function() {
+        alert('Not Implemented');
+        snapToEdges = $(this).prop('checked');
     });
 }
 
@@ -382,7 +391,8 @@ input, label {
     <input type="button" class="Btn" value="Delete Selected" id="deleteSelectedBtn"/>
     <div id="snapOptions">
         <input type="checkbox" id="snapToGrid" /><label for="snapToGrid">Snap to Grid</label>
-        <input type="checkbox" id="snapToLines" /><label for="snapToLines">Snap to Lines</label>
+        <input type="checkbox" id="snapToVertices" /><label for="snapToVertices">Snap to Vertices</label>
+        <input type="checkbox" id="snapToEdges" /><label for="snapToEdges">Snap to Edges</label>
     </div>
 </form>
 </div>

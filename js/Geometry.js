@@ -1,37 +1,21 @@
 var Geometry = Geometry || {};
 
-Geometry.isPointOnLineSegment = function (lineSeg, point, tolerance) {
-    //calculate slope of the line, in case of vertical line divide by zero like a boss
-    var m = (lineSeg.p2.y - lineSeg.p1.y)
-          / (lineSeg.p2.x - lineSeg.p1.x);
-    var x,y;
-    if (Math.abs(m) == Infinity) {
-        x = point.x;
-        y = point.y;
-    } else {
-        //calculate what y of the line would be if x were exactly point.x
-        y = m * (point.x - lineSeg.p1.x) + lineSeg.p1.y;
-        //calculate what x of the line would be if y were exactly point.y
-        x = (point.y - lineSeg.p1.y) / m + lineSeg.p1.x;
-    }
-    //are calculated values within tolerance?
-    if (Math.abs(y - point.y) < tolerance && Math.abs(y - point.y) < tolerance) {
-        //point is (approximately) on the line but is it within the line segment?
-        //determine extrema of the line segment
-        var minX = Math.min(lineSeg.p1.x, lineSeg.p2.x);
-        var minY = Math.min(lineSeg.p1.y, lineSeg.p2.y);
-        var maxX = Math.max(lineSeg.p1.x, lineSeg.p2.x);
-        var maxY = Math.max(lineSeg.p1.y, lineSeg.p2.y);
-        if (   (point.x >= minX || minX - point.x < tolerance)
-            && (point.y >= minY || minY - point.y < tolerance)
-            && (point.x <= maxX || point.x - maxX < tolerance)
-            && (point.y <= maxY || point.y - maxY < tolerance)) {
-            return true;
-        }
-    }
-    return false;
+/**
+ * Determines the point on the line segment closest to the given point.
+ */
+Geometry.getClosestPointOnLineSegment = function(A, B, P) {
+    var a_to_p = [P.x - A.x, P.y - A.y];     // Storing vector A->P
+    var a_to_b = [B.x - A.x, B.y - A.y];    // Storing vector A->B
+
+    var atb2 = Math.pow(a_to_b[0],2) + Math.pow(a_to_b[1],2);  // Find the squared magnitude of a_to_b
+
+    var atp_dot_atb = a_to_p[0]*a_to_b[0] + a_to_p[1]*a_to_b[1]; // The dot product of a_to_p and a_to_b
+
+    var t = atp_dot_atb / atb2; // The normalized "distance" from a to your closest point
+
+    return { x: A.x + a_to_b[0]*t, y: A.y + a_to_b[1]*t } // Add the distance to A, moving towards B
 }
 
-Geometry.distance = function(p1x, p1y, p2x, p2y) {
-    return Math.sqrt(Math.pow(p2x - p1x,2) + Math.pow(p2y - p1y,2));
+Geometry.distance = function(A, B) {
+    return Math.sqrt(Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y, 2));
 }

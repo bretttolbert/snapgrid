@@ -24,6 +24,7 @@ var isGridVisible = true;
 var snapToGrid = true;
 var snapToVertices = true;
 var snapToEdges = false;
+var DEBUG = true;
 
 //line-tool variables
 var pendingLineStartPoint = null; //used by the line-tool
@@ -89,8 +90,18 @@ function updateMouseHoverLine() {
         lineSeg = lineSegments[i];
         //determine if cursor position is on or very near a line
         var TOLERANCE = CELL_SIZE/2;
-        if (Geometry.isPointOnLineSegment(lineSeg, {x:mouseX,y:mouseY}, TOLERANCE)) {
+        var mousePos = {x:mouseX,y:mouseY};
+        var closestPoint = Geometry.getClosestPointOnLineSegment(lineSeg.p1, lineSeg.p2, mousePos)
+        if (Geometry.distance(closestPoint,mousePos) < TOLERANCE) {
             lineSeg.hover = true;
+            if (DEBUG) {
+                //draw dot for p2
+                ctx.beginPath();
+                ctx.arc(closestPoint.x, closestPoint.y, 2, 0, Math.PI*2, true); 
+                ctx.closePath();
+                ctx.fillStyle = "purple";
+                ctx.fill();
+            }
         } else {
             lineSeg.hover = false;
         }
@@ -118,19 +129,28 @@ function updateSnapPos() {
             snapY -= CELL_SIZE;
         }
     }
+    var TOLERANCE = CELL_SIZE / 2;
+    var mousePos = {x:mouseX,y:mouseY};
     if (snapToVertices) {
-        var TOLERANCE = CELL_SIZE / 2;
         for (var i=0; i<lineSegments.length; ++i) {
             //if mouse position is within TOLERANCE distance of one vertex of a line exactly
-            if (Geometry.distance(mouseX, mouseY, 
-                    lineSegments[i].p1.x, lineSegments[i].p1.y) < TOLERANCE) {
+            if (Geometry.distance(mousePos, lineSegments[i].p1) < TOLERANCE) {
                 snapX = lineSegments[i].p1.x;
                 snapY = lineSegments[i].p1.y;
                 return;
-            } else if (Geometry.distance(mouseX, mouseY, 
-                    lineSegments[i].p2.x, lineSegments[i].p2.y) < TOLERANCE) {
+            } else if (Geometry.distance(mousePos, lineSegments[i].p2) < TOLERANCE) {
                 snapX = lineSegments[i].p2.x;
                 snapY = lineSegments[i].p2.y;
+                return;
+            }
+        }
+    }
+    if (snapToEdges) {
+        for (var i=0; i<lineSegments.length; ++i) {
+            var closestPoint = Geometry.getClosestPointOnLineSegment(lineSegments[i].p1, lineSegments[i].p2, mousePos)
+            if (Geometry.distance(closestPoint, mousePos) < TOLERANCE) {
+                snapX = closestPoint.x;
+                snapY = closestPoint.y;
                 return;
             }
         }
@@ -216,7 +236,6 @@ function mouseDown(e) {
 	if (!e) var e = window.event;
 	if (e.which) rightclick = (e.which == 3);
 	else if (e.button) rightclick = (e.button == 2);
-	alert('Rightclick: ' + rightclick); // true or false
 }
 
 function rightClick() {
@@ -311,7 +330,6 @@ function initSnapOptionsUI() {
         snapToVertices = $(this).prop('checked');
     });
     $("#snapToEdges").change(function() {
-        alert('Not Implemented');
         snapToEdges = $(this).prop('checked');
     });
 }

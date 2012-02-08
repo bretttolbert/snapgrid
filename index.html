@@ -23,7 +23,7 @@ var currentTool = 'line-tool';
 var isGridVisible = true;
 var snapToGrid = true;
 var snapToVertices = true;
-var snapToEdges = false;
+var snapToEdges = true;
 var DEBUG = true;
 
 //line-tool variables
@@ -53,19 +53,21 @@ function drawGrid() {
         var p1 = lineSegments[i].p1;
         var p2 = lineSegments[i].p2;
 
-        //draw dot for p1
-        ctx.beginPath();
-        ctx.arc(p1.x, p1.y, 2, 0, Math.PI*2, true); 
-        ctx.closePath();
-        ctx.fillStyle = "black";
-        ctx.fill();
-        
-        //draw dot for p2
-        ctx.beginPath();
-        ctx.arc(p2.x, p2.y, 2, 0, Math.PI*2, true); 
-        ctx.closePath();
-        ctx.fillStyle = "black";
-        ctx.fill();
+        if (false) {
+            //draw dot for p1
+            ctx.beginPath();
+            ctx.arc(p1.x, p1.y, 2, 0, Math.PI*2, true); 
+            ctx.closePath();
+            ctx.fillStyle = "black";
+            ctx.fill();
+            
+            //draw dot for p2
+            ctx.beginPath();
+            ctx.arc(p2.x, p2.y, 2, 0, Math.PI*2, true); 
+            ctx.closePath();
+            ctx.fillStyle = "black";
+            ctx.fill();
+        }
         
         //draw line
         ctx.beginPath();
@@ -91,10 +93,10 @@ function updateMouseHoverLine() {
         //determine if cursor position is on or very near a line
         var TOLERANCE = CELL_SIZE/2;
         var mousePos = {x:mouseX,y:mouseY};
-        var closestPoint = Geometry.getClosestPointOnLineSegment(lineSeg.p1, lineSeg.p2, mousePos)
-        if (Geometry.distance(closestPoint,mousePos) < TOLERANCE) {
+        var closestPoint = Geometry.getClosestPointOnLineSegment(lineSeg.p1, lineSeg.p2, mousePos, TOLERANCE)
+        if (closestPoint != false) {
             lineSeg.hover = true;
-            if (DEBUG) {
+            if (DEBUG && currentTool != "line-tool") {
                 //draw dot for p2
                 ctx.beginPath();
                 ctx.arc(closestPoint.x, closestPoint.y, 2, 0, Math.PI*2, true); 
@@ -145,10 +147,11 @@ function updateSnapPos() {
             }
         }
     }
+    //ToDo: implement snap to implicit vertices created by intersecting line segments
     if (snapToEdges) {
         for (var i=0; i<lineSegments.length; ++i) {
-            var closestPoint = Geometry.getClosestPointOnLineSegment(lineSegments[i].p1, lineSegments[i].p2, mousePos)
-            if (Geometry.distance(closestPoint, mousePos) < TOLERANCE) {
+            var closestPoint = Geometry.getClosestPointOnLineSegment(lineSegments[i].p1, lineSegments[i].p2, mousePos, TOLERANCE)
+            if (closestPoint != false) {
                 snapX = closestPoint.x;
                 snapY = closestPoint.y;
                 return;

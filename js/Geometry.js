@@ -1,7 +1,9 @@
 var Geometry = Geometry || {};
 
 /**
- * Determines the point on the line segment closest to the given point.
+ * Determines the point C on the line segment defined by points A and B which is
+ * closest to the given point P. Returns C if the distance between P and C is within
+ * tolerance. Returns false if distance between P and C is greater than tolerance.
  */
 Geometry.getClosestPointOnLineSegment = function(A, B, P, tolerance) {
     var a_to_p = [P.x - A.x, P.y - A.y];     // Storing vector A->P

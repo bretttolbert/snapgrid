@@ -18,16 +18,19 @@ var ctx; //canvas drawing context
 var CELL_SIZE = 16; //size of each grid cell
 var mouseX, mouseY; //coordinate of most recent mouse position
 var snapX, snapY; //coordinate of grid vertex which is closest to cursor position
+var snapType; //string describing what we have snapped to. Possible values: 'none', 'grid', 'vertex', 'edge' 
 var lineSegments = []; //the list of all existing line segments (point pairs)
-var currentTool = 'line-tool';
+var currentTool = 'draw-line';
 var isGridVisible = true;
+var drawVertexDots = false; //draw dots on every vertex
 var snapToGrid = true;
 var snapToVertices = true;
 var snapToEdges = true;
-var DEBUG = true;
+var DEBUG = false;
+var selectedVertex = null; //used by move-vertex tool
 
-//line-tool variables
-var pendingLineStartPoint = null; //used by the line-tool
+//draw-line variables
+var pendingLineStartPoint = null; //used by the draw-line
 
 /** 
  * Responsible for drawing the grid and all existing line segments
@@ -50,10 +53,21 @@ function drawGrid() {
         }
     }
     for (var i=0; i<lineSegments.length; ++i) {
-        var p1 = lineSegments[i].p1;
-        var p2 = lineSegments[i].p2;
-
-        if (false) {
+        var p1 = {x:lineSegments[i].p1.x, y:lineSegments[i].p1.y};
+        var p2 = {x:lineSegments[i].p2.x, y:lineSegments[i].p2.y};
+        
+        //temporarily apply vertex translations for vertex move preview
+        if (currentTool == 'move-vertex' && selectedVertex != null) {
+            if (p1.x == selectedVertex.x && p1.y == selectedVertex.y) {
+                p1.x = snapX;
+                p1.y = snapY;
+            } else if (p2.x == selectedVertex.x && p2.y == selectedVertex.y) {
+                p2.x = snapX;
+                p2.y = snapY;
+            }
+        }
+        
+        if (drawVertexDots) {
             //draw dot for p1
             ctx.beginPath();
             ctx.arc(p1.x, p1.y, 2, 0, Math.PI*2, true); 
@@ -73,7 +87,7 @@ function drawGrid() {
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y)
         ctx.lineTo(p2.x, p2.y);
-        if (lineSegments[i].hover && (currentTool == 'delete-tool' || currentTool == 'select-tool')) {
+        if (lineSegments[i].hover && (currentTool == 'delete-line' || currentTool == 'select-line')) {
             ctx.strokeStyle = 'teal';
         } else if (lineSegments[i].selected) {
             ctx.strokeStyle = 'blue';
@@ -96,7 +110,7 @@ function updateMouseHoverLine() {
         var closestPoint = Geometry.getClosestPointOnLineSegment(lineSeg.p1, lineSeg.p2, mousePos, TOLERANCE)
         if (closestPoint != false) {
             lineSeg.hover = true;
-            if (DEBUG && currentTool != "line-tool") {
+            if (DEBUG && currentTool == "select-line" || currentTool == "delete-line") {
                 //draw dot for p2
                 ctx.beginPath();
                 ctx.arc(closestPoint.x, closestPoint.y, 2, 0, Math.PI*2, true); 
@@ -116,7 +130,9 @@ function updateMouseHoverLine() {
 function updateSnapPos() {
     snapX = mouseX;
     snapY = mouseY;
+    snapType = 'none';
     if (snapToGrid) {
+        snapType = 'grid';
         //determine first vertical gridline with x greater than mouseX
         for (snapX=CELL_SIZE; snapX<=canvas.width && snapX<mouseX; snapX+=CELL_SIZE) { }
         //snap to previous vertical gridline if mouseX is less than half way there
@@ -139,10 +155,12 @@ function updateSnapPos() {
             if (Geometry.distance(mousePos, lineSegments[i].p1) < TOLERANCE) {
                 snapX = lineSegments[i].p1.x;
                 snapY = lineSegments[i].p1.y;
+                snapType = 'vertex';
                 return;
             } else if (Geometry.distance(mousePos, lineSegments[i].p2) < TOLERANCE) {
                 snapX = lineSegments[i].p2.x;
                 snapY = lineSegments[i].p2.y;
+                snapType = 'vertex';
                 return;
             }
         }
@@ -154,6 +172,7 @@ function updateSnapPos() {
             if (closestPoint != false) {
                 snapX = closestPoint.x;
                 snapY = closestPoint.y;
+                snapType = 'edge';
                 return;
             }
         }
@@ -173,8 +192,8 @@ function mouseMove(e) {
     updateSnapPos();
     updateMouseHoverLine();
     
-    if (currentTool == 'line-tool') {    
-        //draw dot at target position
+    if (currentTool == 'draw-line') {    
+        //draw dot at snap position
         ctx.beginPath();
         ctx.arc(snapX, snapY, 2, 0, Math.PI*2, true); 
         ctx.closePath();
@@ -183,7 +202,7 @@ function mouseMove(e) {
         
         //if there is a pending line
         if (pendingLineStartPoint != null) {
-            //draw temporary line from pendingLineStartPoint to target position
+            //draw temporary line from pendingLineStartPoint to snap position
             ctx.beginPath();
             ctx.moveTo(pendingLineStartPoint.x, pendingLineStartPoint.y);
             ctx.lineTo(snapX, snapY);
@@ -191,15 +210,32 @@ function mouseMove(e) {
             ctx.strokeStyle = 'teal';
             ctx.stroke();
         }
-    } else if (currentTool == 'delete-tool') {
+    } else if (currentTool == 'delete-line') {
         
-    } else if (currentTool == 'select-tool') {
+    } else if (currentTool == 'select-line') {
         
+    } else if (currentTool == 'move-vertex') {
+        if (selectedVertex == null && snapType == 'vertex') {
+            //draw dot at snap position (potentially selectable vertex)
+            ctx.beginPath();
+            ctx.arc(snapX, snapY, 2, 0, Math.PI*2, true); 
+            ctx.closePath();
+            ctx.fillStyle = 'teal';
+            ctx.fill();
+        }
+        if (selectedVertex != null) {
+            //draw dot at snap position (potential new vertex position)
+            ctx.beginPath();
+            ctx.arc(snapX, snapY, 2, 0, Math.PI*2, true); 
+            ctx.closePath();
+            ctx.fillStyle = 'teal';
+            ctx.fill();
+        }
     }
 }
 
 function mouseClick(e) {
-    if (currentTool == 'line-tool') {
+    if (currentTool == 'draw-line') {
         if (pendingLineStartPoint != null) {
             //complete pending line
             lineSegments.push({
@@ -211,7 +247,7 @@ function mouseClick(e) {
         }
         //start pending line
         pendingLineStartPoint = {x:snapX,y:snapY};
-    } else if (currentTool == 'delete-tool') {
+    } else if (currentTool == 'delete-line') {
         //delete mouse hover line
         var mouseHoverLine = -1;
         for (var i=0; i<lineSegments.length; ++i) {
@@ -223,7 +259,7 @@ function mouseClick(e) {
         if (mouseHoverLine != -1) {
             lineSegments.splice(mouseHoverLine,1);     
         }
-    } else if (currentTool == 'select-tool') {
+    } else if (currentTool == 'select-line') {
         for (var i=0; i<lineSegments.length; ++i) {
             if (lineSegments[i].hover) {
                 lineSegments[i].selected = !lineSegments[i].selected;
@@ -234,17 +270,40 @@ function mouseClick(e) {
     drawGrid();
 }
 
-function mouseDown(e) {
-	var rightclick;
-	if (!e) var e = window.event;
-	if (e.which) rightclick = (e.which == 3);
-	else if (e.button) rightclick = (e.button == 2);
-}
-
 function rightClick() {
-    if (currentTool == 'line-tool') {
+    if (currentTool == 'draw-line') {
         //clear pending line
         pendingLineStartPoint = null;
+    }
+}
+
+function mouseDown() {
+    if (currentTool == 'move-vertex') {
+        if (snapType == 'vertex') {
+            selectedVertex = {x:snapX,y:snapY};
+            console.log('mousedown - vertex selected for move');
+        }
+    }
+}
+
+function mouseUp() {
+    if (currentTool == 'move-vertex') {
+        if (selectedVertex != null) {
+            //permanently apply vertex move
+            for (var i=0; i<lineSegments.length; ++i) {
+                var p1 = lineSegments[i].p1;
+                var p2 = lineSegments[i].p2;
+                if (p1.x == selectedVertex.x && p1.y == selectedVertex.y) {
+                    p1.x = snapX;
+                    p1.y = snapY;
+                } else if (p2.x == selectedVertex.x && p2.y == selectedVertex.y) {
+                    p2.x = snapX;
+                    p2.y = snapY;
+                }
+            }
+            selectedVertex = null;
+            console.log('mouseup - vertex move complete');
+        }
     }
 }
 
@@ -315,7 +374,7 @@ function toolRadioChanged() {
     var id = this.id;
     currentTool = id;
     pendingLineStartPoint = null;
-    if (id == 'delete-tool' || id == 'line-tool') {
+    if (id == 'delete-line' || id == 'draw-line') {
         //clearSelectedLines(); //not sure if this is desirable
     }
     drawGrid();
@@ -351,6 +410,8 @@ $(function() {
     //$("#radio").buttonset();
     $("input.ToolRadio").change(toolRadioChanged);
     initSnapOptionsUI();
+    $('#canvas').mousedown(mouseDown);
+    $('#canvas').mouseup(mouseUp);
 });
 </script>
 <style type="text/css">
@@ -371,9 +432,10 @@ input, label {
 <canvas id="canvas" width="640" height="480"></canvas>
 <form>
 	<div id="radio">
-		<input type="radio" class="ToolRadio" name="tool-radio" id="line-tool" checked="checked" /><label for="line-tool">Line Tool</label>
-		<input type="radio" class="ToolRadio" name="tool-radio" id="select-tool" /><label for="select-tool">Select Tool</label>
-        <input type="radio" class="ToolRadio" name="tool-radio" id="delete-tool" /><label for="delete-tool">Delete Tool</label>
+		<input type="radio" class="ToolRadio" name="tool-radio" id="draw-line" checked="checked" /><label for="draw-line">Draw Line</label>
+		<input type="radio" class="ToolRadio" name="tool-radio" id="select-line" /><label for="select-line">Select Line</label>
+        <input type="radio" class="ToolRadio" name="tool-radio" id="delete-line" /><label for="delete-line">Delete Line</label>
+        <input type="radio" class="ToolRadio" name="tool-radio" id="move-vertex" /><label for="delete-line">Move Vertex</label>
 	</div>
     <input type="button" class="Btn" value="Hide Grid" id="showHideGridBtn"/>
     <input type="button" class="Btn" value="Select All" id="selectAllBtn"/>

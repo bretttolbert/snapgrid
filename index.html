@@ -52,6 +52,7 @@ function drawGrid() {
             ctx.stroke();
         }
     }
+    var src = '{lineSegments:[\n';
     for (var i=0; i<lineSegments.length; ++i) {
         var p1 = {x:lineSegments[i].p1.x, y:lineSegments[i].p1.y};
         var p2 = {x:lineSegments[i].p2.x, y:lineSegments[i].p2.y};
@@ -66,6 +67,12 @@ function drawGrid() {
                 p2.y = snapY;
             }
         }
+        
+        src += '{p1:{x:' + p1.x + ',y:' + p1.y + '},p2:{x:' + p2.x + ',y:' + p2.y + '}}';
+        if (i != lineSegments.length-1) {
+            src += ',';
+        }
+        src += '\n';
         
         if (drawVertexDots) {
             //draw dot for p1
@@ -96,6 +103,8 @@ function drawGrid() {
         }
         ctx.stroke();
     }
+    src += ']}';
+    $('#srcTxt').val(src);
 }
 
 /**
@@ -396,6 +405,14 @@ function initSnapOptionsUI() {
     });
 }
 
+function srcTxtKeyPress(e) {
+    if (e.keyCode == 13) {
+        var data = eval('('+$(this).val()+')');
+        lineSegments = data['lineSegments'];
+        drawGrid();
+    }
+};
+
 $(function() {
     canvas = document.getElementById('canvas');
     ctx = canvas.getContext('2d');
@@ -412,6 +429,7 @@ $(function() {
     initSnapOptionsUI();
     $('#canvas').mousedown(mouseDown);
     $('#canvas').mouseup(mouseUp);
+    $('#srcTxt').keypress(srcTxtKeyPress);
 });
 </script>
 <style type="text/css">
@@ -446,6 +464,7 @@ input, label {
         <input type="checkbox" id="snapToVertices" /><label for="snapToVertices">Snap to Vertices</label>
         <input type="checkbox" id="snapToEdges" /><label for="snapToEdges">Snap to Edges</label>
     </div>
+    <textarea rows="10" cols="80" id="srcTxt"></textarea>
 </form>
 </div>
 </body>

@@ -28,9 +28,25 @@ var snapToVertices = true;
 var snapToEdges = true;
 var DEBUG = false;
 var selectedVertex = null; //used by move-vertex tool
+var history = []; //used for Undo/Redo (Ctrl-Z/Ctrl-Y)
+var ctrlDown = false;
+var KEY_CTRL=17, KEY_C=67, KEY_V=86, KEY_Y=89, KEY_Z=90;
 
 //draw-line variables
 var pendingLineStartPoint = null; //used by the draw-line
+
+/**
+ * All tools are required to call this function before modifying the contents of the grid
+ * (e.g. before adding a new line segment or before moving a vertex)
+ * Saves the state of the grid into history for retrieval via Undo button or Ctrl-Z
+ */
+function saveGrid() {
+    var snapshot = [];
+    for (var i=0; i<lineSegments.length; ++i) {
+        snapshot.push({p1:{x:lineSegments[i].p1.x,y:lineSegments[i].p1.y},p2:{x:lineSegments[i].p2.x,y:lineSegments[i].p2.y}});
+    }
+    history.push({'lineSegments':snapshot});
+}
 
 /** 
  * Responsible for drawing the grid and all existing line segments
@@ -247,6 +263,7 @@ function mouseClick(e) {
     if (currentTool == 'draw-line') {
         if (pendingLineStartPoint != null) {
             //complete pending line
+            saveGrid(); //save the grid first
             lineSegments.push({
                 p1:pendingLineStartPoint,
                 p2:{x:snapX,y:snapY},
@@ -258,6 +275,7 @@ function mouseClick(e) {
         pendingLineStartPoint = {x:snapX,y:snapY};
     } else if (currentTool == 'delete-line') {
         //delete mouse hover line
+        saveGrid(); //save the grid first
         var mouseHoverLine = -1;
         for (var i=0; i<lineSegments.length; ++i) {
             if (lineSegments[i].hover) {
@@ -299,6 +317,7 @@ function mouseUp() {
     if (currentTool == 'move-vertex') {
         if (selectedVertex != null) {
             //permanently apply vertex move
+            saveGrid(); //save the grid first
             for (var i=0; i<lineSegments.length; ++i) {
                 var p1 = lineSegments[i].p1;
                 var p2 = lineSegments[i].p2;
@@ -413,6 +432,20 @@ function srcTxtKeyPress(e) {
     }
 };
 
+function undo() {
+    //cannot undo if history is empty
+    if (history.length > 0) {
+        lineSegments = history.pop()['lineSegments'];
+    } else {
+        lineSegments = [];
+    }
+    drawGrid();
+}
+
+function redo() {
+    console.log('not implemented');
+}
+
 $(function() {
     canvas = document.getElementById('canvas');
     ctx = canvas.getContext('2d');
@@ -424,12 +457,26 @@ $(function() {
     $('#selectAllBtn').click(selectAllBtnClicked);
     $('#selectNoneBtn').click(selectNoneBtnClicked);
     $('#deleteSelectedBtn').click(deleteSelectedBtnClicked);
+    $('#undoBtn').click(undo);
     //$("#radio").buttonset();
     $("input.ToolRadio").change(toolRadioChanged);
     initSnapOptionsUI();
     $('#canvas').mousedown(mouseDown);
     $('#canvas').mouseup(mouseUp);
     $('#srcTxt').keypress(srcTxtKeyPress);
+    $(document).keydown(function(e)
+    {
+        if (e.keyCode == KEY_CTRL) {
+            ctrlDown = true;
+        } else if (ctrlDown && e.keyCode == KEY_Z) {
+            undo();
+        } else if (ctrlDown && e.keyCode == KEY_Y) {
+            redo();
+        }
+    }).keyup(function(e)
+    {
+        if (e.keyCode == KEY_CTRL) ctrlDown = false;
+    });
 });
 </script>
 <style type="text/css">
@@ -459,6 +506,7 @@ input, label {
     <input type="button" class="Btn" value="Select All" id="selectAllBtn"/>
     <input type="button" class="Btn" value="Select None" id="selectNoneBtn"/>
     <input type="button" class="Btn" value="Delete Selected" id="deleteSelectedBtn"/>
+    <input type="button" class="Btn" value="Undo" id="undoBtn"/>
     <div id="snapOptions">
         <input type="checkbox" id="snapToGrid" /><label for="snapToGrid">Snap to Grid</label>
         <input type="checkbox" id="snapToVertices" /><label for="snapToVertices">Snap to Vertices</label>

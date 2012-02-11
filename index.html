@@ -7,6 +7,7 @@
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js"></script>
 <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
 <script src="js/Geometry.js"></script>
+<script src="js/LineSegment.js"></script>
 <script type="text/javascript">
 /**
  * snapgrid
@@ -26,11 +27,17 @@ var drawVertexDots = false; //draw dots on every vertex
 var snapToGrid = true;
 var snapToVertices = true;
 var snapToEdges = true;
-var DEBUG = false;
+var debugEnabled = true;
 var selectedVertex = null; //used by move-vertex tool
 var history = []; //used for Undo/Redo (Ctrl-Z/Ctrl-Y)
 var ctrlDown = false;
 var KEY_CTRL=17, KEY_C=67, KEY_V=86, KEY_Y=89, KEY_Z=90;
+
+function debug(str) {
+    if (debugEnabled) {
+        console.log(str);
+    }
+}
 
 //draw-line variables
 var pendingLineStartPoint = null; //used by the draw-line
@@ -135,7 +142,7 @@ function updateMouseHoverLine() {
         var closestPoint = Geometry.getClosestPointOnLineSegment(lineSeg.p1, lineSeg.p2, mousePos, TOLERANCE)
         if (closestPoint != false) {
             lineSeg.hover = true;
-            if (DEBUG && currentTool == "select-line" || currentTool == "delete-line") {
+            if (debug && currentTool == "select-line" || currentTool == "delete-line") {
                 //draw dot for p2
                 ctx.beginPath();
                 ctx.arc(closestPoint.x, closestPoint.y, 2, 0, Math.PI*2, true); 
@@ -308,7 +315,7 @@ function mouseDown() {
     if (currentTool == 'move-vertex') {
         if (snapType == 'vertex') {
             selectedVertex = {x:snapX,y:snapY};
-            console.log('mousedown - vertex selected for move');
+            debug('mousedown - vertex selected for move');
         }
     }
 }
@@ -330,7 +337,7 @@ function mouseUp() {
                 }
             }
             selectedVertex = null;
-            console.log('mouseup - vertex move complete');
+            debug('mouseup - vertex move complete');
         }
     }
 }
@@ -379,6 +386,64 @@ function selectAllBtnClicked() {
 function selectNoneBtnClicked() {
     clearSelectedLines();
     drawGrid();
+}
+
+/**
+ * This will join the selected line segments if all selected line segments
+ * are on the same line. The segments do not have to be contiguous. For example,
+ * if the following two line segments were selected: 
+ * [{p1:{x:0,y:0},p2:{x:10,y:0}},{p1:{x:20,y:0},p2:{x:30,y:0}}]
+ * join would replace the selected line segments with [{p1:{x:0,y:0},p2:{x:30,y:0}}]
+ */
+function joinSelectedBtnClicked() {
+    var selected = [];
+    var notSelected = [];
+    for (var i=0; i<lineSegments.length; ++i) {
+        if (lineSegments[i].selected == true) {
+            selected.push(lineSegments[i]);
+        } else {
+            notSelected.push(lineSegments[i]);
+        }
+    }
+    if (selected.length >= 2) {
+        var selectedPoints = [];
+        for (var i=0; i<selected.length; ++i) {
+            if (selectedPoints.indexOf(selected[i].p1) == -1) {
+                selectedPoints.push(selected[i].p1);
+            }
+            if (selectedPoints.indexOf(selected[i].p2) == -1) {
+                selectedPoints.push(selected[i].p2);
+            }
+        }
+        //special case: two line segments had a vertex in common
+        if (selectedPoints.length >= 3) {
+            if (Geometry.onSameLine(selectedPoints)) {
+                debug('selectedPoints.length='+selectedPoints.length);
+                var ls = new LineSegment(0,0,0,0);
+                ls.p1 = Geometry.extrema(selectedPoints, 'left');
+                ls.p2 = Geometry.extrema(selectedPoints, 'right');
+                var isVertical = (selectedPoints[0].x == selectedPoints[1].x) && (selectedPoints[0].x == selectedPoints[2].x);
+                if (isVertical) {
+                    ls.p1 = Geometry.extrema(selectedPoints, 'top');
+                    ls.p2 = Geometry.extrema(selectedPoints, 'bottom');
+                    debug('isVertical=true');
+                }
+                debug('ls='+ls.repr());
+                lineSegments = [];
+                for (var i=0; i<notSelected.length; ++i) {
+                    lineSegments.push(notSelected[i]);
+                }
+                lineSegments.push({p1:ls.p1,p2:ls.p2,selected:false,hover:false});
+                drawGrid();
+            } else {
+                alert('Cannot join because line segments are not on the same line.');
+            }
+        } else {
+            debug('selectedPoints.length < 3');
+        }
+    } else {
+        alert('No line segments selected for join.');
+    }
 }
 
 function deleteSelectedBtnClicked() {
@@ -443,7 +508,7 @@ function undo() {
 }
 
 function redo() {
-    console.log('not implemented');
+    debug('not implemented');
 }
 
 $(function() {
@@ -456,6 +521,7 @@ $(function() {
     $('#showHideGridBtn').click(showHideGridBtnClicked);
     $('#selectAllBtn').click(selectAllBtnClicked);
     $('#selectNoneBtn').click(selectNoneBtnClicked);
+    $('#joinSelectedBtn').click(joinSelectedBtnClicked);
     $('#deleteSelectedBtn').click(deleteSelectedBtnClicked);
     $('#undoBtn').click(undo);
     //$("#radio").buttonset();
@@ -505,6 +571,7 @@ input, label {
     <input type="button" class="Btn" value="Hide Grid" id="showHideGridBtn"/>
     <input type="button" class="Btn" value="Select All" id="selectAllBtn"/>
     <input type="button" class="Btn" value="Select None" id="selectNoneBtn"/>
+    <input type="button" class="Btn" value="Join Selected" id="joinSelectedBtn"/>
     <input type="button" class="Btn" value="Delete Selected" id="deleteSelectedBtn"/>
     <input type="button" class="Btn" value="Undo" id="undoBtn"/>
     <div id="snapOptions">

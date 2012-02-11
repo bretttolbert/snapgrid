@@ -50,7 +50,7 @@ var pendingLineStartPoint = null; //used by the draw-line
 function saveGrid() {
     var snapshot = [];
     for (var i=0; i<lineSegments.length; ++i) {
-        snapshot.push({p1:{x:lineSegments[i].p1.x,y:lineSegments[i].p1.y},p2:{x:lineSegments[i].p2.x,y:lineSegments[i].p2.y}});
+        snapshot.push(lineSegments[i].clone());
     }
     history.push({'lineSegments':snapshot});
 }
@@ -77,9 +77,7 @@ function drawGrid() {
     }
     var src = '{lineSegments:[\n';
     for (var i=0; i<lineSegments.length; ++i) {
-        var ls = new LineSegment(lineSegments[i].p1.x,lineSegments[i].p1.y,
-                                 lineSegments[i].p2.x,lineSegments[i].p2.y);
-        
+        var ls = lineSegments[i];
         //temporarily apply vertex translations for vertex move preview
         if (currentTool == 'move-vertex' && selectedVertex != null) {
             if (ls.p1.x == selectedVertex.x && ls.p1.y == selectedVertex.y) {
@@ -134,13 +132,13 @@ function drawGrid() {
  */
 function updateMouseHoverLine() {
     for (var i=0; i<lineSegments.length; ++i) {
-        lineSeg = lineSegments[i];
+        ls = lineSegments[i];
         //determine if cursor position is on or very near a line
         var TOLERANCE = CELL_SIZE/2;
         var mousePos = {x:mouseX,y:mouseY};
-        var closestPoint = Geometry.getClosestPointOnLineSegment(lineSeg.p1, lineSeg.p2, mousePos, TOLERANCE)
+        var closestPoint = Geometry.getClosestPointOnLineSegment(ls.p1, ls.p2, mousePos, TOLERANCE)
         if (closestPoint != false) {
-            lineSeg.hover = true;
+            ls.hover = true;
             if (debug && currentTool == "select-line" || currentTool == "delete-line") {
                 //draw dot for p2
                 ctx.beginPath();
@@ -150,7 +148,7 @@ function updateMouseHoverLine() {
                 ctx.fill();
             }
         } else {
-            lineSeg.hover = false;
+            ls.hover = false;
         }
     }
 }
@@ -270,12 +268,8 @@ function mouseClick(e) {
         if (pendingLineStartPoint != null) {
             //complete pending line
             saveGrid(); //save the grid first
-            lineSegments.push({
-                p1:pendingLineStartPoint,
-                p2:{x:snapX,y:snapY},
-                selected:false,
-                hover:false}
-            );
+            lineSegments.push(
+                new LineSegment(pendingLineStartPoint.x, pendingLineStartPoint.y, snapX, snapY));
         }
         //start pending line
         pendingLineStartPoint = {x:snapX,y:snapY};
@@ -418,7 +412,7 @@ function joinSelectedBtnClicked() {
         if (selectedPoints.length >= 3) {
             if (Geometry.onSameLine(selectedPoints)) {
                 debug('selectedPoints.length='+selectedPoints.length);
-                var ls = new LineSegment(0,0,0,0);
+                var ls = new LineSegment();
                 ls.p1 = Geometry.extrema(selectedPoints, 'left');
                 ls.p2 = Geometry.extrema(selectedPoints, 'right');
                 var isVertical = (selectedPoints[0].x == selectedPoints[1].x) && (selectedPoints[0].x == selectedPoints[2].x);
@@ -432,7 +426,7 @@ function joinSelectedBtnClicked() {
                 for (var i=0; i<notSelected.length; ++i) {
                     lineSegments.push(notSelected[i]);
                 }
-                lineSegments.push({p1:ls.p1,p2:ls.p2,selected:false,hover:false});
+                lineSegments.push(ls);
                 drawGrid();
             } else {
                 alert('Cannot join because line segments are not on the same line.');

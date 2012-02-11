@@ -20,7 +20,6 @@ var debugEnabled = true;
 var selectedVertex = null; //used by move-vertex tool
 var history = []; //used for Undo/Redo (Ctrl-Z/Ctrl-Y)
 var ctrlDown = false;
-var KEY_CTRL=17, KEY_C=67, KEY_V=86, KEY_Y=89, KEY_Z=90;
 
 function debug(str) {
     if (debugEnabled) {
@@ -347,7 +346,7 @@ if (document.layers) {
 }
 document.oncontextmenu = function() {return false;};
 
-function showHideGridBtnClicked() {
+function showHideGrid() {
     if ($(this).val() == "Hide Grid") {
         isGridVisible = false;
         $(this).val("Show Grid");
@@ -358,14 +357,14 @@ function showHideGridBtnClicked() {
     drawGrid();
 }
 
-function selectAllBtnClicked() {
+function selectAll() {
     for (var i=0; i<lineSegments.length; ++i) {
         lineSegments[i].selected = true;
     }
     drawGrid();
 }
 
-function selectNoneBtnClicked() {
+function selectNone() {
     clearSelectedLines();
     drawGrid();
 }
@@ -377,7 +376,7 @@ function selectNoneBtnClicked() {
  * [{p1:{x:0,y:0},p2:{x:10,y:0}},{p1:{x:20,y:0},p2:{x:30,y:0}}]
  * join would replace the selected line segments with [{p1:{x:0,y:0},p2:{x:30,y:0}}]
  */
-function joinSelectedBtnClicked() {
+function joinSelected() {
     var selected = [];
     var notSelected = [];
     for (var i=0; i<lineSegments.length; ++i) {
@@ -428,7 +427,7 @@ function joinSelectedBtnClicked() {
     }
 }
 
-function deleteSelectedBtnClicked() {
+function deleteSelected() {
     var survivingLines = [];
     for (var i=0; i<lineSegments.length; ++i) {
         if (!lineSegments[i].selected) {
@@ -511,11 +510,11 @@ $(function() {
     canvas.addEventListener('mousemove', mouseMove, false);
     canvas.addEventListener('click', mouseClick, false);
     //$('input.Btn').button();
-    $('#showHideGridBtn').click(showHideGridBtnClicked);
-    $('#selectAllBtn').click(selectAllBtnClicked);
-    $('#selectNoneBtn').click(selectNoneBtnClicked);
-    $('#joinSelectedBtn').click(joinSelectedBtnClicked);
-    $('#deleteSelectedBtn').click(deleteSelectedBtnClicked);
+    $('#showHideGridBtn').click(showHideGrid);
+    $('#selectAllBtn').click(selectAll);
+    $('#selectNoneBtn').click(selectNone);
+    $('#joinSelectedBtn').click(joinSelected);
+    $('#deleteSelectedBtn').click(deleteSelected);
     $('#undoBtn').click(undo);
     //$("#radio").buttonset();
     $("input.ToolRadio").change(toolChanged);
@@ -525,15 +524,17 @@ $(function() {
     $('#srcTxt').keypress(srcTxtKeyPress);
     $(document).keydown(function(e)
     {
-        if (e.keyCode == KEY_CTRL) {
+        if (e.keyCode == Keys.Ctrl) {
             ctrlDown = true;
-        } else if (ctrlDown && e.keyCode == KEY_Z) {
+        } else if (ctrlDown && e.keyCode == Keys.Z) {
             undo();
-        } else if (ctrlDown && e.keyCode == KEY_Y) {
+        } else if (ctrlDown && e.keyCode == Keys.Y) {
             redo();
+        } else if (e.keyCode == Keys.Delete) {
+            deleteSelected();
         }
     }).keyup(function(e)
     {
-        if (e.keyCode == KEY_CTRL) ctrlDown = false;
+        if (e.keyCode == Keys.Ctrl) ctrlDown = false;
     });
 });

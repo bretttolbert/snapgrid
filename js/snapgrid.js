@@ -473,8 +473,19 @@ function initSnapOptionsUI() {
 
 function srcTxtKeyPress(e) {
     if (e.keyCode == 13) {
-        var data = eval('('+$(this).val()+')');
-        lineSegments = data['lineSegments'];
+        var data;
+        try {
+            data = eval('('+$(this).val()+')');
+        } catch (err) {
+            alert(err.message);
+            return;
+        }
+        lineSegments = [];
+        srcLineSegments = data['lineSegments'];
+        for (var i in srcLineSegments) {
+            var ls = srcLineSegments[i];
+            lineSegments.push(new LineSegment(ls.p1.x, ls.p1.y, ls.p2.x, ls.p2.y));
+        }
         drawGrid();
     }
 };

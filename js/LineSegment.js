@@ -10,7 +10,7 @@
     this.hover = false;
     
     this.repr = function() {
-        return '{p1:{x:' + this.p1.x + ',y:' + this.p1.y + '},p2:{x:' + this.p2.x + ',y:' + this.p2.y + '}';
+        return '{p1:{x:' + this.p1.x + ',y:' + this.p1.y + '},p2:{x:' + this.p2.x + ',y:' + this.p2.y + '}}';
     }
     
     this.setData = function(Ax,Ay,Bx,By) {

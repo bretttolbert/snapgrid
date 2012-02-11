@@ -77,21 +77,20 @@ function drawGrid() {
     }
     var src = '{lineSegments:[\n';
     for (var i=0; i<lineSegments.length; ++i) {
-        var p1 = {x:lineSegments[i].p1.x, y:lineSegments[i].p1.y};
-        var p2 = {x:lineSegments[i].p2.x, y:lineSegments[i].p2.y};
+        var ls = new LineSegment(lineSegments[i].p1.x,lineSegments[i].p1.y,
+                                 lineSegments[i].p2.x,lineSegments[i].p2.y);
         
         //temporarily apply vertex translations for vertex move preview
         if (currentTool == 'move-vertex' && selectedVertex != null) {
-            if (p1.x == selectedVertex.x && p1.y == selectedVertex.y) {
-                p1.x = snapX;
-                p1.y = snapY;
-            } else if (p2.x == selectedVertex.x && p2.y == selectedVertex.y) {
-                p2.x = snapX;
-                p2.y = snapY;
+            if (ls.p1.x == selectedVertex.x && ls.p1.y == selectedVertex.y) {
+                ls.p1.x = snapX;
+                ls.p1.y = snapY;
+            } else if (ls.p2.x == selectedVertex.x && ls.p2.y == selectedVertex.y) {
+                ls.p2.x = snapX;
+                ls.p2.y = snapY;
             }
         }
-        
-        src += '{p1:{x:' + p1.x + ',y:' + p1.y + '},p2:{x:' + p2.x + ',y:' + p2.y + '}}';
+        src += ls.repr();
         if (i != lineSegments.length-1) {
             src += ',';
         }
@@ -100,14 +99,14 @@ function drawGrid() {
         if (drawVertexDots) {
             //draw dot for p1
             ctx.beginPath();
-            ctx.arc(p1.x, p1.y, 2, 0, Math.PI*2, true); 
+            ctx.arc(ls.p1.x, ls.p1.y, 2, 0, Math.PI*2, true); 
             ctx.closePath();
             ctx.fillStyle = "black";
             ctx.fill();
             
             //draw dot for p2
             ctx.beginPath();
-            ctx.arc(p2.x, p2.y, 2, 0, Math.PI*2, true); 
+            ctx.arc(ls.p2.x, ls.p2.y, 2, 0, Math.PI*2, true); 
             ctx.closePath();
             ctx.fillStyle = "black";
             ctx.fill();
@@ -115,8 +114,8 @@ function drawGrid() {
         
         //draw line
         ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y)
-        ctx.lineTo(p2.x, p2.y);
+        ctx.moveTo(ls.p1.x, ls.p1.y)
+        ctx.lineTo(ls.p2.x, ls.p2.y);
         if (lineSegments[i].hover && (currentTool == 'delete-line' || currentTool == 'select-line')) {
             ctx.strokeStyle = 'teal';
         } else if (lineSegments[i].selected) {
